@@ -14,9 +14,10 @@ app.use(bodyParser.json());
 const users = {
   kanna: "pellam",
   pellam: "kanna",
-  admin: "admin123"
-  user1:"meow"
-  user2:"meow"
+  admin: "admin123",
+  user1:"meow",
+  user2:"meow",
+  User3:"meow"
 };
 
 // VAPID keys
