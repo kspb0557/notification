@@ -10,6 +10,7 @@ const rateLimit = require('express-rate-limit');
 const Joi = require('joi');
 
 const app = express();
+app.set('trust proxy',1)
 
 // CORS config - match your frontend URL exactly
 app.use(cors({
