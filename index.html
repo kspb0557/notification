@@ -1,31 +1,138 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Secret Notify</title>
+  <meta charset="utf-8" />
+  <title>Secret Notify ❤️</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Parisienne&family=Poppins:wght@400;600&display=swap');
+
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 99%, #fad0c4 100%);
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #6b2737;
+    }
+    .container {
+      background: #fff0f6;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(219, 112, 147, 0.3);
+      padding: 40px 35px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      position: relative;
+    }
+    h1 {
+      font-family: 'Parisienne', cursive;
+      font-size: 3rem;
+      color: #d6336c;
+      margin-bottom: 20px;
+      letter-spacing: 3px;
+      text-shadow: 1px 1px 5px #ff6f91;
+      user-select: none;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 14px 16px;
+      margin: 12px 0 22px;
+      border-radius: 12px;
+      border: 2px solid #d6336c;
+      font-size: 1rem;
+      color: #6b2737;
+      background: #fff0f6;
+      transition: border-color 0.3s ease;
+      font-weight: 500;
+      font-family: 'Poppins', sans-serif;
+      resize: vertical;
+    }
+    input::placeholder, textarea::placeholder {
+      color: #d6336caa;
+      font-style: italic;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #ff6f91;
+      box-shadow: 0 0 10px #ff6f91aa;
+      background: #fff0f6;
+    }
+    button {
+      background: #d6336c;
+      border: none;
+      border-radius: 25px;
+      color: white;
+      font-weight: 700;
+      font-size: 1.1rem;
+      padding: 14px 0;
+      width: 100%;
+      cursor: pointer;
+      box-shadow: 0 6px 15px #d6336caa;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+      user-select: none;
+    }
+    button:hover {
+      background: #ff6f91;
+      box-shadow: 0 8px 20px #ff6f91cc;
+    }
+    #messageSection {
+      display: none;
+      margin-top: 20px;
+    }
+    #welcomeText {
+      font-weight: 600;
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+      color: #a31545;
+      user-select: none;
+    }
+    /* Heart icon near title */
+    .heart {
+      color: #d6336c;
+      font-size: 2.5rem;
+      position: absolute;
+      top: 15px;
+      right: 25px;
+      user-select: none;
+      animation: heartbeat 1.5s infinite;
+    }
+    @keyframes heartbeat {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+    }
+  </style>
 </head>
 <body>
-  <h1>Secret Messaging</h1>
+  <div class="container">
+    <div class="heart">❤️</div>
+    <h1>Messenger</h1>
 
-  <!-- LOGIN SECTION -->
-  <div id="loginSection">
-    <input id="loginUser" placeholder="Username"><br><br>
-    <input id="loginPass" type="password" placeholder="Password"><br><br>
-    <button id="loginBtn">Login</button>
-  </div>
+    <!-- LOGIN SECTION -->
+    <div id="loginSection">
+      <input id="loginUser" placeholder="Your Username" autocomplete="username" spellcheck="false" />
+      <input id="loginPass" type="password" placeholder="Your Password" autocomplete="current-password" />
+      <button id="loginBtn">Login</button>
+    </div>
 
-  <!-- MESSAGE SECTION -->
-  <div id="messageSection" style="display:none;">
-    <h3 id="welcomeText"></h3>
+    <!-- MESSAGE SECTION -->
+    <div id="messageSection">
+      <h3 id="welcomeText"></h3>
 
-    <input id="recipient" placeholder="Send to username"><br><br>
-
-    <textarea id="message" placeholder="Type message..."></textarea><br><br>
-
-    <button id="sendBtn">Send Message</button>
+      <input id="recipient" placeholder="Send to username" autocomplete="off" spellcheck="false" />
+      <textarea id="message" placeholder="Type your love message..." rows="4"></textarea>
+      <button id="sendBtn">Send Message 💌</button>
+    </div>
   </div>
 
   <script>
+    const BASE_URL = "https://notification-h2s6.onrender.com"; // your live backend
+
     const VAPID_PUBLIC_KEY = "BD1_aWv6bt4ai9B_2OxDYVdn2axZC7_5s2cOXMMgt2XR5X8ZBbXvM-X6kKFinke4WkNh5FEejE51Ru5Mm6QfYGQ";
 
     let currentUser = null;
@@ -33,7 +140,6 @@
     document.getElementById("loginBtn").onclick = loginUser;
     document.getElementById("sendBtn").onclick = sendMessage;
 
-    // decode vapid
     function urlBase64ToUint8Array(base64String) {
       const padding = '='.repeat((4 - base64String.length % 4) % 4);
       const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -41,7 +147,6 @@
       return Uint8Array.from([...rawData].map(ch => ch.charCodeAt(0)));
     }
 
-    // LOGIN FUNCTION
     async function loginUser() {
       const username = document.getElementById("loginUser").value.trim();
       const password = document.getElementById("loginPass").value.trim();
@@ -50,7 +155,7 @@
         return alert("Enter both username and password");
       }
 
-      const res = await fetch("http://localhost:3000/login", {
+      const res = await fetch(`${BASE_URL}/login`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ username, password })
@@ -62,24 +167,19 @@
         return;
       }
 
-      // LOGIN SUCCESS
       currentUser = username;
       document.getElementById("loginSection").style.display = "none";
       document.getElementById("messageSection").style.display = "block";
       document.getElementById("welcomeText").innerText = `Logged in as: ${currentUser}`;
 
-      // request notification permission
       const permission = await Notification.requestPermission();
       if (permission !== "granted") return alert("Enable notifications");
 
-      // register service worker
       await navigator.serviceWorker.register("/sw.js");
 
-      // subscribe user
       await subscribeUser(currentUser);
     }
 
-    // SUBSCRIBE USER
     async function subscribeUser(user) {
       try {
         const registration = await navigator.serviceWorker.ready;
@@ -89,7 +189,7 @@
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         });
 
-        await fetch("http://localhost:3000/subscribe", {
+        await fetch(`${BASE_URL}/subscribe`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ user, subscription })
@@ -103,7 +203,6 @@
       }
     }
 
-    // SEND MESSAGE
     async function sendMessage() {
       const recipient = document.getElementById("recipient").value.trim();
       const message = document.getElementById("message").value.trim();
@@ -112,7 +211,7 @@
         return alert("Enter recipient and message");
       }
 
-      const res = await fetch("http://localhost:3000/send", {
+      const res = await fetch(`${BASE_URL}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -15,6 +15,8 @@ const users = {
   kanna: "pellam",
   pellam: "kanna",
   admin: "admin123"
+  user1:"meow"
+  user2:"meow"
 };
 
 // VAPID keys
