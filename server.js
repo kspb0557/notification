@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const Joi = require('joi');
-const https = require('https'); // added for IPv4 agent
+const https = require('https'); // for IPv4 agent
 
 const app = express();
 
@@ -174,31 +174,31 @@ app.post('/subscribe', authenticateToken, (req, res) => {
   return res.status(201).json({ success: true });
 });
 
-// Send notification (authenticated)
+// Send notification (authenticated) — always generic
 app.post('/send', authenticateToken, async (req, res) => {
   const { error, value } = sendSchema.validate(req.body);
   if (error) return res.status(400).send(error.details[0].message);
 
-  const from = req.user.username;
-  const { recipient, message } = value;
+  const { recipient } = value;
 
   if (!subscriptions[recipient]) {
     return res.status(404).send("Recipient not subscribed");
   }
 
+  // Always send a generic notification
   const payload = JSON.stringify({
-    title: `Message from ${from}`,
-    body: message
+    title: "Hurry Up",
+    body: "The Time's up"
   });
 
   const agent = new https.Agent({ family: 4 }); // force IPv4
 
   try {
     await webpush.sendNotification(subscriptions[recipient], payload, {
-      timeout: 10000, // 10 seconds
+      timeout: 10000,
       agent
     });
-    console.log(`Notification sent to ${recipient} from ${from}`);
+    console.log(`Generic notification sent to ${recipient}`);
     return res.json({ success: true });
   } catch (err) {
     console.error("webpush error:", err);
