@@ -76,6 +76,7 @@
       box-shadow: 0 6px 15px #d6336caa;
       transition: background 0.3s ease, box-shadow 0.3s ease;
       user-select: none;
+      margin-bottom: 10px;
     }
     button:hover {
       background: #ff6f91;
@@ -127,11 +128,12 @@
       <input id="recipient" placeholder="Send to username" autocomplete="off" spellcheck="false" />
       <textarea id="message" placeholder="Type your love message..." rows="4"></textarea>
       <button id="sendBtn">Send Message 💌</button>
+      <button id="logoutBtn" style="background:#a31545;">Logout</button>
     </div>
   </div>
 
   <script>
-    const BASE_URL = "https://notification-h2s6.onrender.com"; // your live backend
+    const BASE_URL = "https://notification-h2s6.onrender.com"; // your backend URL
 
     const VAPID_PUBLIC_KEY = "BD1_aWv6bt4ai9B_2OxDYVdn2axZC7_5s2cOXMMgt2XR5X8ZBbXvM-X6kKFinke4WkNh5FEejE51Ru5Mm6QfYGQ";
 
@@ -139,6 +141,21 @@
 
     document.getElementById("loginBtn").onclick = loginUser;
     document.getElementById("sendBtn").onclick = sendMessage;
+    document.getElementById("logoutBtn").onclick = logoutUser;
+
+    // Utility: decode JWT payload (not validating signature, just decoding)
+    function parseJwt(token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+        return JSON.parse(jsonPayload);
+      } catch {
+        return null;
+      }
+    }
 
     function urlBase64ToUint8Array(base64String) {
       const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -167,11 +184,15 @@
         return;
       }
 
+      const data = await res.json();
+      localStorage.setItem("token", data.token);
       currentUser = username;
-      document.getElementById("loginSection").style.display = "none";
-      document.getElementById("messageSection").style.display = "block";
-      document.getElementById("welcomeText").innerText = `Logged in as: ${currentUser}`;
 
+      showMessageSection();
+      await initializePush();
+    }
+
+    async function initializePush() {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") return alert("Enable notifications");
 
@@ -191,8 +212,11 @@
 
         await fetch(`${BASE_URL}/subscribe`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user, subscription })
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+          },
+          body: JSON.stringify({ subscription })
         });
 
         console.log("Subscribed as:", user);
@@ -213,11 +237,13 @@
 
       const res = await fetch(`${BASE_URL}/send`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
         body: JSON.stringify({
           recipient,
-          message,
-          from: currentUser
+          message
         })
       });
 
@@ -230,6 +256,53 @@
         document.getElementById("message").value = "";
       }
     }
+
+    function logoutUser() {
+      localStorage.removeItem("token");
+      currentUser = null;
+      showLoginSection();
+      alert("Logged out");
+    }
+
+    function showMessageSection() {
+      document.getElementById("loginSection").style.display = "none";
+      document.getElementById("messageSection").style.display = "block";
+      document.getElementById("welcomeText").innerText = `Logged in as: ${currentUser}`;
+    }
+
+    function showLoginSection() {
+      document.getElementById("loginSection").style.display = "block";
+      document.getElementById("messageSection").style.display = "none";
+      document.getElementById("loginUser").value = "";
+      document.getElementById("loginPass").value = "";
+      document.getElementById("recipient").value = "";
+      document.getElementById("message").value = "";
+    }
+
+    // On page load, check if token exists and auto-login if valid
+    window.onload = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const payload = parseJwt(token);
+      if (!payload || !payload.username) {
+        localStorage.removeItem("token");
+        return;
+      }
+
+      // Optional: Check token expiration (exp is in seconds)
+      const now = Math.floor(Date.now() / 1000);
+      if (payload.exp && payload.exp < now) {
+        localStorage.removeItem("token");
+        return;
+      }
+
+      currentUser = payload.username;
+      showMessageSection();
+
+      // Initialize service worker and subscribe for notifications
+      await initializePush();
+    };
   </script>
 </body>
 </html>
