@@ -1,24 +1,23 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const webpush = require('web-push');
 const cors = require('cors');
+const webpush = require('web-push');
 
 const app = express();
-app.use(cors());
+
+app.use(cors({
+  origin: 'https://notification.edgeone.app'
+}));
 app.use(bodyParser.json());
 
-// -----------------------
-//  PREDEFINED USER ACCOUNTS
-// -----------------------
+// Users
 const users = {
   kanna: "pellam",
   pellam: "kanna",
   admin: "admin123"
 };
 
-// -----------------------
-//  VAPID KEYS
-// -----------------------
+// VAPID keys
 const vapidKeys = {
   publicKey: "BD1_aWv6bt4ai9B_2OxDYVdn2axZC7_5s2cOXMMgt2XR5X8ZBbXvM-X6kKFinke4WkNh5FEejE51Ru5Mm6QfYGQ",
   privateKey: "b-10HxCuao3jiO8oRYxAta7d7vm-fkdaWTR42CZaD9U"
@@ -30,37 +29,28 @@ webpush.setVapidDetails(
   vapidKeys.privateKey
 );
 
-// Store subscriptions
 let subscriptions = {};
 
-// -----------------------
-//  LOGIN ROUTE
-// -----------------------
+// LOGIN route
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
-  // Missing data
   if (!username || !password) {
     return res.status(400).send("Missing username or password");
   }
 
-  // User doesn't exist
   if (!users[username]) {
     return res.status(401).send("User does not exist");
   }
 
-  // Wrong password
   if (users[username] !== password) {
     return res.status(403).send("Incorrect password");
   }
 
-  // Success
   res.send({ success: true });
 });
 
-// -----------------------
-//  SUBSCRIBE ROUTE
-// -----------------------
+// SUBSCRIBE route
 app.post('/subscribe', (req, res) => {
   const { user, subscription } = req.body;
 
@@ -73,9 +63,7 @@ app.post('/subscribe', (req, res) => {
   res.status(201).json({ success: true });
 });
 
-// -----------------------
-//  SEND NOTIFICATION
-// -----------------------
+// SEND notification route
 app.post('/send', async (req, res) => {
   const { recipient, message, from } = req.body;
 
@@ -90,8 +78,8 @@ app.post('/send', async (req, res) => {
   }
 
   const payload = JSON.stringify({
-    title: "Hurry UP",
-    body:"The Time's Up"
+    title: `Message from ${from}`,
+    body: message
   });
 
   try {
@@ -104,5 +92,5 @@ app.post('/send', async (req, res) => {
   }
 });
 
-// -----------------------
-app.listen(3000, () => console.log("Server started on port 3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
