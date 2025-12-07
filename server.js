@@ -1,4 +1,3 @@
-// server.js (final)
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -9,11 +8,12 @@ const fs = require('fs');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const Joi = require('joi');
+const https = require('https'); // added for IPv4 agent
 
 const app = express();
 
 // ----- Trust proxy so express-rate-limit can trust X-Forwarded-For -----
-app.set('trust proxy', 1); // trust first proxy (suitable for most PaaS/load-balancers)
+app.set('trust proxy', 1);
 
 // ----- CORS -----
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://notification.edgeone.app';
@@ -44,7 +44,7 @@ webpush.setVapidDetails(
 
 // ----- Rate limiter for login -----
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 10,
   message: "Too many login attempts. Please try again later.",
 });
@@ -116,7 +116,7 @@ function authenticateToken(req, res, next) {
 
   jwt.verify(token, JWT_SECRET, (err, payload) => {
     if (err) return res.status(403).send("Invalid token");
-    req.user = payload; // { username: ... }
+    req.user = payload;
     req.token = token;
     next();
   });
@@ -175,7 +175,7 @@ app.post('/subscribe', authenticateToken, (req, res) => {
 });
 
 // Send notification (authenticated)
-app.post('/send', authenticateToken, async (req, res, next) => {
+app.post('/send', authenticateToken, async (req, res) => {
   const { error, value } = sendSchema.validate(req.body);
   if (error) return res.status(400).send(error.details[0].message);
 
@@ -191,29 +191,36 @@ app.post('/send', authenticateToken, async (req, res, next) => {
     body: message
   });
 
+  const agent = new https.Agent({ family: 4 }); // force IPv4
+
   try {
-    await webpush.sendNotification(subscriptions[recipient], payload);
+    await webpush.sendNotification(subscriptions[recipient], payload, {
+      timeout: 10000, // 10 seconds
+      agent
+    });
     console.log(`Notification sent to ${recipient} from ${from}`);
     return res.json({ success: true });
   } catch (err) {
     console.error("webpush error:", err);
-    // If subscription is gone/inactive, remove it
+
     if (err.statusCode === 410 || err.statusCode === 404) {
       console.log(`Removing invalid subscription for ${recipient}`);
       delete subscriptions[recipient];
       saveSubscriptions();
     }
-    return next(err);
+
+    return res.status(500).json({
+      success: false,
+      error: "Push delivery failed",
+      details: err.message || "Unknown error"
+    });
   }
 });
 
-// Optionally serve frontend static files (if you want backend to host sw.js and icons)
-// Put your frontend build into ./public/ and uncomment the lines below.
-// Serving sw.js from same origin ensures service worker registers with correct MIME type.
+// Serve frontend static files
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 if (fs.existsSync(PUBLIC_DIR)) {
   app.use(express.static(PUBLIC_DIR, {
-    // ensure js files served with correct types
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.js')) res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     }
