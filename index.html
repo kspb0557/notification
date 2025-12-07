@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Secret Notify</title>
+</head>
+<body>
+  <h1>Secret Messaging</h1>
+
+  <!-- LOGIN SECTION -->
+  <div id="loginSection">
+    <input id="loginUser" placeholder="Username"><br><br>
+    <input id="loginPass" type="password" placeholder="Password"><br><br>
+    <button id="loginBtn">Login</button>
+  </div>
+
+  <!-- MESSAGE SECTION -->
+  <div id="messageSection" style="display:none;">
+    <h3 id="welcomeText"></h3>
+
+    <input id="recipient" placeholder="Send to username"><br><br>
+
+    <textarea id="message" placeholder="Type message..."></textarea><br><br>
+
+    <button id="sendBtn">Send Message</button>
+  </div>
+
+  <script>
+    const VAPID_PUBLIC_KEY = "BD1_aWv6bt4ai9B_2OxDYVdn2axZC7_5s2cOXMMgt2XR5X8ZBbXvM-X6kKFinke4WkNh5FEejE51Ru5Mm6QfYGQ";
+
+    let currentUser = null;
+
+    document.getElementById("loginBtn").onclick = loginUser;
+    document.getElementById("sendBtn").onclick = sendMessage;
+
+    // decode vapid
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = atob(base64);
+      return Uint8Array.from([...rawData].map(ch => ch.charCodeAt(0)));
+    }
+
+    // LOGIN FUNCTION
+    async function loginUser() {
+      const username = document.getElementById("loginUser").value.trim();
+      const password = document.getElementById("loginPass").value.trim();
+
+      if (!username || !password) {
+        return alert("Enter both username and password");
+      }
+
+      const res = await fetch("http://localhost:3000/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ username, password })
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        alert("Login failed: " + err);
+        return;
+      }
+
+      // LOGIN SUCCESS
+      currentUser = username;
+      document.getElementById("loginSection").style.display = "none";
+      document.getElementById("messageSection").style.display = "block";
+      document.getElementById("welcomeText").innerText = `Logged in as: ${currentUser}`;
+
+      // request notification permission
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return alert("Enable notifications");
+
+      // register service worker
+      await navigator.serviceWorker.register("/sw.js");
+
+      // subscribe user
+      await subscribeUser(currentUser);
+    }
+
+    // SUBSCRIBE USER
+    async function subscribeUser(user) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+
+        await fetch("http://localhost:3000/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user, subscription })
+        });
+
+        console.log("Subscribed as:", user);
+
+      } catch (err) {
+        console.error("Subscription error:", err);
+        alert("Failed to subscribe — check console");
+      }
+    }
+
+    // SEND MESSAGE
+    async function sendMessage() {
+      const recipient = document.getElementById("recipient").value.trim();
+      const message = document.getElementById("message").value.trim();
+
+      if (!recipient || !message) {
+        return alert("Enter recipient and message");
+      }
+
+      const res = await fetch("http://localhost:3000/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient,
+          message,
+          from: currentUser
+        })
+      });
+
+      const text = await res.text();
+
+      if (!res.ok) {
+        alert("Send failed: " + text);
+      } else {
+        alert("Message sent!");
+        document.getElementById("message").value = "";
+      }
+    }
+  </script>
+</body>
+</html>
